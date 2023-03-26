@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "linguist",
+]
+resolver = "2"
