@@ -1,7 +1,18 @@
 [package]
-name = "linguist"
+name = "linguist-rs"
+description = "A library that can be used to detect programming languages."
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/adiepenbrock/linguist-rs"
 authors = ["Andreas Diepenbrock"]
 
 [dependencies]
+serde = { version = "1.0", features = ["derive"], optional = true}
+serde_yaml = { version = "0.9", optional = true }
+
+[features]
+# this features enables the functionality to load language definitions from a yaml file
+yaml-load = ["dep:serde", "dep:serde_yaml"]
+default = ["yaml-load"]
+
