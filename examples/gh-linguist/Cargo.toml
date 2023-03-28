@@ -1,0 +1,8 @@
+[package]
+name = "gh-linguist"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+linguist = { path = "../../linguist", features = ["default"] }
+
