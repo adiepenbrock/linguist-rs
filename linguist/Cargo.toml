@@ -1,11 +1,15 @@
 [package]
 name = "linguist-rs"
 description = "A library that can be used to detect programming languages."
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/adiepenbrock/linguist-rs"
 authors = ["Andreas Diepenbrock"]
+
+[lib]
+name = "linguist"
+path = "src/lib.rs"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"], optional = true}

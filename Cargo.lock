@@ -12,7 +12,7 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 name = "gh-linguist"
 version = "0.1.0"
 dependencies = [
- "linguist",
+ "linguist-rs",
 ]
 
 [[package]]
@@ -38,8 +38,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "453ad9f582a441959e5f0d088b02ce04cfe8d51a8eaf077f12ac6d3e94164ca6"
 
 [[package]]
-name = "linguist"
-version = "0.1.0"
+name = "linguist-rs"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_yaml",
