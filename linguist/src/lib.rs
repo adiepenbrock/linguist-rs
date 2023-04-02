@@ -1,31 +1,30 @@
-#[cfg(feature = "yaml-load")]
+use std::ffi::OsString;
 use std::path::Path;
+use std::{collections::HashMap, io::Read};
 
 #[derive(Debug, Clone)]
 pub struct LanguageInfo {
+    pub parent: Option<String>,
     pub name: String,
+    pub aliases: Vec<String>,
     pub scope: String,
-    pub extensions: Vec<String>,
+    pub extensions: Vec<OsString>,
+    pub filenames: Vec<OsString>,
     pub color: Option<String>,
 }
 
 #[derive(Debug, Clone)]
 pub enum LanguageSetError {
+    LanguageNotFound,
     #[cfg(feature = "yaml-load")]
     FileNotFound,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct LanguageSet {
     languages: Vec<LanguageInfo>,
-}
-
-impl Default for LanguageSet {
-    fn default() -> Self {
-        Self {
-            languages: Vec::new(),
-        }
-    }
+    extensions: HashMap<OsString, Vec<usize>>,
+    filenames: HashMap<OsString, Vec<usize>>,
 }
 
 impl LanguageSet {
@@ -33,36 +32,51 @@ impl LanguageSet {
         Self::default()
     }
 
-    /// Convenience constructor for loading a language set from a definition file.
     #[cfg(feature = "yaml-load")]
     pub fn load_from_path(path: impl AsRef<Path>) -> Result<LanguageSet, LanguageSetError> {
+        use serde::Deserialize;
+
         if !path.as_ref().exists() {
             return Err(LanguageSetError::FileNotFound);
         }
 
-        use serde::Deserialize;
-        use std::collections::HashMap;
-
-        #[derive(Deserialize)]
+        #[derive(Debug, Deserialize)]
         struct GhLanguageDef {
             color: Option<String>,
             #[serde(rename = "type")]
             scope: String,
+            aliases: Option<Vec<String>>,
             extensions: Option<Vec<String>>,
+            filenames: Option<Vec<String>>,
+            group: Option<String>,
         }
 
         let ldc = std::fs::read_to_string(path).expect("failed to read path");
         let defs: Result<HashMap<String, GhLanguageDef>, _> = serde_yaml::from_str(ldc.as_str());
 
         let mut ls = Self::default();
-
-        if defs.is_ok() {
-            defs.unwrap().iter().for_each(|(name, lang)| {
-                ls.languages.push(LanguageInfo {
-                    name: name.to_string(),
+        if let Ok(defs) = defs {
+            defs.iter().for_each(|(name, lang)| {
+                let _ = ls.register_language(LanguageInfo {
+                    name: name.clone(),
                     scope: lang.scope.clone(),
-                    extensions: lang.extensions.clone().unwrap_or(vec![]),
+                    extensions: lang
+                        .extensions
+                        .clone()
+                        .unwrap_or_default()
+                        .iter()
+                        .map(OsString::from)
+                        .collect(),
+                    filenames: lang
+                        .filenames
+                        .clone()
+                        .unwrap_or_default()
+                        .iter()
+                        .map(OsString::from)
+                        .collect(),
+                    aliases: lang.aliases.clone().unwrap_or(vec![]),
                     color: lang.color.clone(),
+                    parent: lang.group.clone(),
                 });
             });
         }
@@ -71,33 +85,93 @@ impl LanguageSet {
     }
 
     pub fn register_language(&mut self, lang: LanguageInfo) -> Result<(), LanguageSetError> {
-        // TODO (unique language name): only add the language iff there is no other language with
-        // the same name already...
+        let idx = self.languages.len();
 
-        self.languages.push(lang.clone());
+        // before we finally add the language to our vec of languages, we add it to our internal
+        // cache of extension -> lang-idx
+        lang.extensions.iter().for_each(|ext| {
+            if let Some(langs) = self.extensions.get_mut(ext) {
+                langs.push(idx);
+            } else {
+                self.extensions.insert(ext.clone(), vec![idx]);
+            }
+        });
+        lang.filenames.iter().for_each(|name| {
+            if let Some(langs) = self.filenames.get_mut(name) {
+                langs.push(idx);
+            } else {
+                self.filenames.insert(name.clone(), vec![idx]);
+            }
+        });
+        self.languages.push(lang);
+
         Ok(())
     }
 
     pub fn remove_language_by_name(&mut self, name: &str) -> Result<(), LanguageSetError> {
-        if let Some(idx) = self
+        let idx = self
             .languages
             .iter()
-            .position(|item| item.name == name.to_string())
-        {
-            self.languages.remove(idx);
+            .position(|lang| lang.name == name || lang.aliases.contains(&name.to_string()))
+            .ok_or(LanguageSetError::LanguageNotFound)?;
+
+        // remove the idx of all extensions that have a reference to this particular language
+        for (_, value) in self.extensions.iter_mut() {
+            value.retain(|&x| x != idx);
         }
+
+        self.languages.remove(idx);
+
         Ok(())
     }
 
-    pub fn resolve_language_by_extension(&self, ext: &str) -> Option<&LanguageInfo> {
-        if let Some(idx) = self
-            .languages
-            .iter()
-            .position(|lang| lang.extensions.contains(&ext.to_string()))
-        {
-            return Some(&self.languages[idx]);
-        }
+    /// Resolves the programming language by the given extension.
+    pub fn resolve_languages_by_extension(
+        &self,
+        filename: impl AsRef<Path>,
+    ) -> Option<Vec<&LanguageInfo>> {
+        // first, check if we can get an extension from the given `Path`; second, some extensions
+        // may not be identified as an extension, e.g., .vhost, so we also try to use the filename
+        // to resolve the possible languages
+        let ext = match filename.as_ref().extension() {
+            Some(ext) => ext,
+            _ => match filename.as_ref().file_name() {
+                Some(name) => name,
+                _ => return None,
+            },
+        };
 
-        None
+        let languages: Vec<&LanguageInfo> = self
+            .extensions
+            .get(&ext.to_os_string())
+            .unwrap()
+            .iter()
+            .map(|idx| &self.languages[*idx])
+            .collect();
+
+        if !languages.is_empty() {
+            Some(languages)
+        } else {
+            None
+        }
+    }
+
+    pub fn resolve_languages_by_filename(
+        &self,
+        filename: impl AsRef<Path>,
+    ) -> Option<Vec<&LanguageInfo>> {
+        let languages: Vec<&LanguageInfo> = self
+            .filenames
+            .get(&filename.as_ref().as_os_str().to_os_string())
+            .unwrap()
+            .iter()
+            .map(|idx| &self.languages[*idx])
+            .collect();
+
+        if !languages.is_empty() {
+            Some(languages)
+        } else {
+            None
+        }
     }
 }
