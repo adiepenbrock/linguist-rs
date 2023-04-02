@@ -1,6 +1,6 @@
+use std::collections::HashMap;
 use std::ffi::OsString;
 use std::path::Path;
-use std::{collections::HashMap, io::Read};
 
 #[derive(Debug, Clone)]
 pub struct LanguageInfo {
