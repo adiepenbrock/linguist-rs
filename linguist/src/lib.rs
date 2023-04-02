@@ -3,6 +3,7 @@ use std::ffi::OsString;
 use std::path::Path;
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "yaml-load", derive(serde::Serialize, serde::Deserialize))]
 pub struct LanguageInfo {
     pub parent: Option<String>,
     pub name: String,
@@ -34,6 +35,35 @@ impl LanguageSet {
 
     #[cfg(feature = "yaml-load")]
     pub fn load_from_path(path: impl AsRef<Path>) -> Result<LanguageSet, LanguageSetError> {
+        if !path.as_ref().exists() {
+            return Err(LanguageSetError::FileNotFound);
+        }
+
+        let ldc = std::fs::read_to_string(path).expect("failed to read path");
+        let defs: Result<HashMap<String, LanguageInfo>, _> = serde_yaml::from_str(ldc.as_str());
+
+        let mut ls = Self::default();
+        if let Ok(defs) = defs {
+            defs.iter().for_each(|(name, lang)| {
+                let _ = ls.register_language(LanguageInfo {
+                    name: name.clone(),
+                    scope: lang.scope.clone(),
+                    extensions: lang.extensions.clone(),
+                    filenames: lang.filenames.clone(),
+                    aliases: lang.aliases.clone(),
+                    color: lang.color.clone(),
+                    parent: lang.parent.clone(),
+                });
+            });
+        }
+
+        Ok(ls)
+    }
+
+    #[cfg(feature = "github-linguist-yaml")]
+    pub fn load_github_linguist_languages(
+        path: impl AsRef<Path>,
+    ) -> Result<LanguageSet, LanguageSetError> {
         use serde::Deserialize;
 
         if !path.as_ref().exists() {
