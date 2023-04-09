@@ -12,12 +12,14 @@ name = "linguist"
 path = "src/lib.rs"
 
 [dependencies]
+regex = { version = "1.7.3", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true}
 serde_yaml = { version = "0.9", optional = true }
 
 [features]
 # this features enables the functionality to load language definitions from a yaml file
-yaml-load = ["dep:serde", "dep:serde_yaml"]
-github-linguist-yaml = ["yaml-load"]
-default = ["yaml-load"]
+serde = ["dep:serde"]
+matcher = ["dep:regex"]
+github-linguist-yaml = ["serde", "dep:serde_yaml"]
+default = ["serde", "matcher"]
 
