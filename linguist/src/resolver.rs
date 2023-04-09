@@ -4,7 +4,7 @@ use std::fmt::Display;
 use std::path::Path;
 
 #[cfg(feature = "matcher")]
-use regex::Regex;
+use fancy_regex::Regex;
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -117,7 +117,11 @@ impl Container for InMemoryLanguageContainer {
 
     #[cfg(feature = "matcher")]
     fn get_heuristics_by_extension(&self, file: impl AsRef<Path>) -> Option<&Vec<HeuristicRule>> {
-        let ext = file.as_ref().extension().unwrap();
+        let ext = match file.as_ref().extension() {
+            Some(val) => val,
+            _ => return None,
+        };
+
         let heuristics = self.heuristics.get(&ext.to_os_string());
         heuristics
     }
@@ -148,13 +152,16 @@ pub fn resolve_language_by_content(
     file: impl AsRef<Path>,
     container: &impl Container,
 ) -> Result<Option<&Language>, LinguistError> {
-    let content = std::fs::read_to_string(file.as_ref()).unwrap();
+    let content = match std::fs::read_to_string(file.as_ref()) {
+        Ok(content) => content,
+        _ => return Err(LinguistError::FileNotFound),
+    };
 
     if let Some(rules) = container.get_heuristics_by_extension(file.as_ref()) {
         for rule in rules {
             let matcher = Regex::new(&rule.patterns.join("|")).unwrap();
 
-            if matcher.is_match(&content) {
+            if matcher.is_match(&content).is_ok() {
                 return Ok(container.get_language_by_name(&rule.language));
             }
         }
