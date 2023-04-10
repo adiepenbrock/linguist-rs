@@ -6,7 +6,7 @@ use std::path::Path;
 #[cfg(feature = "matcher")]
 use fancy_regex::Regex;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Language {
     pub parent: Option<String>,
@@ -24,7 +24,7 @@ impl Display for Language {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "matcher", derive(serde::Serialize, serde::Deserialize))]
 pub struct HeuristicRule {
     pub language: String,
@@ -32,7 +32,7 @@ pub struct HeuristicRule {
     pub patterns: Vec<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LinguistError {
     LanguageNotFound,
     #[cfg(feature = "serde")]
@@ -159,12 +159,40 @@ pub fn resolve_language_by_content(
 
     if let Some(rules) = container.get_heuristics_by_extension(file.as_ref()) {
         for rule in rules {
-            let matcher = Regex::new(&rule.patterns.join("|")).unwrap();
+            let matcher = if let Ok(regex) = Regex::new(&rule.patterns.join("|")) {
+                regex
+            } else {
+                continue;
+            };
 
             if matcher.is_match(&content).is_ok() {
                 return Ok(container.get_language_by_name(&rule.language));
             }
         }
+    }
+
+    Err(LinguistError::LanguageNotFound)
+}
+
+pub fn resolve_language(
+    file: impl AsRef<Path>,
+    container: &impl Container,
+) -> Result<Option<&Language>, LinguistError> {
+    // try to determine the language by filename
+    if let Ok(candidates) = resolve_languages_by_filename(&file, container) {
+        if candidates.len() == 1 {
+            return Ok(Some(candidates.get(0).unwrap()));
+        }
+    }
+
+    if let Ok(candidates) = resolve_languages_by_extension(&file, container) {
+        if candidates.len() == 1 {
+            return Ok(Some(candidates.get(0).unwrap()));
+        }
+    }
+
+    if let Ok(candidate) = resolve_language_by_content(&file, container) {
+        return Ok(candidate);
     }
 
     Err(LinguistError::LanguageNotFound)

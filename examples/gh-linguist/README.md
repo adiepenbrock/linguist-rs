@@ -19,12 +19,12 @@ curl -o heuristics.yml https://raw.githubusercontent.com/github/linguist/master/
 
 ## How to run
 
-This example tool can be used to determine the programming language of a specific file on your machine,
+This example tool can be used to determine the programming languages of a directory on your machine,
 using the GitHub Linguist definitions. Besides the paths to both definition files, the tool expects
-a path to a file on your machine. You can run the tool by executing the following command:
+a path to a directory on your machine. You can run the tool by executing the following command:
 
 ```
-LANGUAGE_DEF_PATH=/path/to/languages.yml HEURISTIC_DEF_PATH=/path/to/heuristics.yml cargo run /path/to/file
+LANGUAGE_DEF_PATH=/path/to/languages.yml HEURISTIC_DEF_PATH=/path/to/heuristics.yml cargo run /path/to/directory
 ```
 
 Make sure to replace `/path/to/languages.yml` and `/path/to/heuristics.yml` with the actual paths to

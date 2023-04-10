@@ -1,10 +1,9 @@
 use linguist::{
     github::{load_github_linguist_heuristics, load_github_linguist_languages},
-    resolver::{
-        resolve_language_by_content, resolve_languages_by_extension, resolve_languages_by_filename,
-        InMemoryLanguageContainer,
-    },
+    resolver::{resolve_language, InMemoryLanguageContainer},
 };
+use std::{collections::HashMap, fmt::Display, os::unix::prelude::MetadataExt, path::Path};
+use walkdir::WalkDir;
 
 fn main() {
     let ldp = std::env::var("LANGUAGE_DEF_PATH").expect("cannot find env `LANGUAGE_DEF_PATH`");
@@ -25,35 +24,59 @@ fn main() {
         }
     }
 
-    match resolve_languages_by_filename(&args[1], &lc) {
-        Ok(result) => println!(
-            "Possible languages by filename: {}",
-            result
-                .iter()
-                .map(|x| x.name.clone())
-                .collect::<Vec<String>>()
-                .join(", ")
-        ),
-        _ => println!("No result by `resolve_languages_by_filename()`"),
+    let root = Path::new(&args[1]);
+    if !root.is_dir() {
+        eprintln!("path isn't a directory");
+        return;
+    }
+
+    let mut breakdown = LanguageBreakdown {
+        usages: HashMap::new(),
+        total_size: 0,
     };
 
-    match resolve_languages_by_extension(&args[1], &lc) {
-        Ok(result) => println!(
-            "Possible languages by extension: {}",
-            result
-                .iter()
-                .map(|x| x.name.clone())
-                .collect::<Vec<String>>()
-                .join(", ")
-        ),
-        _ => println!("No result by `resolve_languages_by_extension()`"),
-    };
+    let walker = WalkDir::new(root);
+    for entry in walker.into_iter().flatten() {
+        if entry.path().is_dir() {
+            continue;
+        }
 
-    match resolve_language_by_content(&args[1], &lc) {
-        Ok(result) => match result {
-            Some(lang) => println!("Language by content: {}", lang.name),
-            _ => println!("No heuristic found"),
-        },
-        _ => println!("No result by `resolve_languages_by_content()`"),
-    };
+        let language = if let Ok(lang) = resolve_language(entry.path(), &lc) {
+            lang.unwrap()
+        } else {
+            continue;
+        };
+
+        breakdown.add_usage(&language.name, entry.metadata().unwrap().size());
+    }
+    println!("{}", breakdown);
+}
+
+pub struct LanguageBreakdown {
+    usages: HashMap<String, u64>,
+    total_size: u64,
+}
+
+impl LanguageBreakdown {
+    pub fn add_usage(&mut self, lang: &str, size: u64) {
+        let entry = self.usages.entry(lang.to_string()).or_insert(size);
+        *entry += size;
+
+        self.total_size += size;
+    }
+}
+
+impl Display for LanguageBreakdown {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut values: Vec<(&String, &u64)> = self.usages.iter().collect();
+        values.sort_by_key(|&(_, v)| v);
+        values.reverse();
+
+        for (lang, size) in values {
+            let percentage = ((*size as f64) * 100.0) / (self.total_size as f64);
+            let _ = writeln!(f, "{:-6.2}% {:-7}   {}", percentage, size, lang);
+        }
+
+        Ok(())
+    }
 }
