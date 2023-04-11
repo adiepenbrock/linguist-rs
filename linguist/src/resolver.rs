@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::ffi::OsString;
 use std::fmt::Display;
 use std::path::Path;
+use std::usize;
 
 #[cfg(feature = "matcher")]
 use fancy_regex::Regex;
@@ -178,22 +179,36 @@ pub fn resolve_language(
     file: impl AsRef<Path>,
     container: &impl Container,
 ) -> Result<Option<&Language>, LinguistError> {
-    // try to determine the language by filename
+    let mut probabilities: HashMap<String, usize> = HashMap::new();
+
     if let Ok(candidates) = resolve_languages_by_filename(&file, container) {
-        if candidates.len() == 1 {
-            return Ok(Some(candidates.get(0).unwrap()));
+        for candidate in candidates {
+            *probabilities.entry(candidate.name.clone()).or_insert(1) += 1;
         }
     }
 
     if let Ok(candidates) = resolve_languages_by_extension(&file, container) {
-        if candidates.len() == 1 {
-            return Ok(Some(candidates.get(0).unwrap()));
+        for candidate in candidates {
+            *probabilities.entry(candidate.name.clone()).or_insert(1) += 1;
         }
     }
 
     if let Ok(candidate) = resolve_language_by_content(&file, container) {
-        return Ok(candidate);
+        if let Some(candidate) = candidate {
+            *probabilities.entry(candidate.name.clone()).or_insert(1) += 1;
+        }
     }
 
+    let mut ordered: Vec<(&String, &usize)> = probabilities.iter().collect();
+    ordered.sort_by_key(|&(_, v)| v);
+    ordered.reverse();
+
+    if !ordered.is_empty() {
+        return Ok(Some(
+            container
+                .get_language_by_name(ordered.get(0).unwrap().0)
+                .unwrap(),
+        ));
+    }
     Err(LinguistError::LanguageNotFound)
 }
