@@ -7,6 +7,8 @@ use std::usize;
 #[cfg(feature = "matcher")]
 use fancy_regex::Regex;
 
+use crate::utils::is_binary;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Language {
@@ -179,6 +181,9 @@ pub fn resolve_language(
     file: impl AsRef<Path>,
     container: &impl Container,
 ) -> Result<Option<&Language>, LinguistError> {
+    if is_binary(&file) {
+        return Ok(None);
+    }
     let mut probabilities: HashMap<String, usize> = HashMap::new();
 
     if let Ok(candidates) = resolve_languages_by_filename(&file, container) {
