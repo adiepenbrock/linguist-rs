@@ -182,3 +182,10 @@ pub fn load_github_linguist_heuristics(
 
     Ok(rules)
 }
+
+pub fn load_github_vendors(path: impl AsRef<Path>) -> Result<Vec<String>, LinguistError> {
+    let content = std::fs::read_to_string(path).expect("unable to open vendors file");
+    let data = serde_yaml::from_str::<Vec<String>>(&content).unwrap();
+
+    Ok(data)
+}

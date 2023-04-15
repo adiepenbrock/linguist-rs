@@ -35,11 +35,25 @@ pub struct HeuristicRule {
     pub patterns: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum LinguistError {
     LanguageNotFound,
     #[cfg(feature = "serde")]
     FileNotFound,
+    PatternCompileError(fancy_regex::Error),
+    IOError(std::io::Error),
+}
+
+impl From<std::io::Error> for LinguistError {
+    fn from(value: std::io::Error) -> Self {
+        LinguistError::IOError(value)
+    }
+}
+
+impl From<fancy_regex::Error> for LinguistError {
+    fn from(value: fancy_regex::Error) -> Self {
+        LinguistError::PatternCompileError(value)
+    }
 }
 
 pub trait Container {
@@ -162,14 +176,12 @@ pub fn resolve_language_by_content(
 
     if let Some(rules) = container.get_heuristics_by_extension(file.as_ref()) {
         for rule in rules {
-            let matcher = if let Ok(regex) = Regex::new(&rule.patterns.join("|")) {
-                regex
-            } else {
-                continue;
-            };
+            let matcher = Regex::new(&rule.patterns.join("|"))?;
 
-            if matcher.is_match(&content).is_ok() {
-                return Ok(container.get_language_by_name(&rule.language));
+            if let Ok(result) = matcher.is_match(&content) {
+                if result {
+                    return Ok(container.get_language_by_name(&rule.language));
+                }
             }
         }
     }
@@ -181,9 +193,10 @@ pub fn resolve_language(
     file: impl AsRef<Path>,
     container: &impl Container,
 ) -> Result<Option<&Language>, LinguistError> {
-    if is_binary(&file) {
+    if is_binary(&file)? {
         return Ok(None);
     }
+
     let mut probabilities: HashMap<String, usize> = HashMap::new();
 
     if let Ok(candidates) = resolve_languages_by_filename(&file, container) {

@@ -1,6 +1,8 @@
 use fancy_regex::Regex;
 use std::{io::Read, path::Path};
 
+use crate::resolver::LinguistError;
+
 pub static CONFIGURATION_EXTENSIONS: [&str; 6] = ["xml", "json", "toml", "yaml", "ini", "sql"];
 
 /// Check if a file is a configuration file by checking if it has a configuration extension.
@@ -43,29 +45,20 @@ pub fn is_vendor(file: impl AsRef<Path>, rules: Vec<String>) -> bool {
     false
 }
 
+const FIRST_FEW_BYTES: usize = 8000;
+
 /// Check if a file is binary or not by checking if it contains a null byte.
 /// this is based on [https://git.kernel.org/pub/scm/git/git.git/tree/xdiff-interface.c?id=HEAD#n198]
-pub fn is_binary(file: impl AsRef<Path>) -> Result<bool, ()> {
-    let path = file.as_ref().canonicalize();
-    if path.is_err() {
-        return Err(());
-    }
+pub fn is_binary(path: impl AsRef<Path>) -> Result<bool, LinguistError> {
+    let mut file = std::fs::File::open(path.as_ref())?;
+    let mut buf = [0; FIRST_FEW_BYTES];
+    let n = file.read(&mut buf)?;
 
-    let data = std::fs::File::open(path.unwrap());
-    let mut buffer = [0; 8000];
-
-    if data.is_err() {
-        return Err(());
-    }
-
-    if let Ok(n) = data.unwrap().read(&mut buffer) {
-        for i in 0..n {
-            if buffer[i] == 0 {
-                return Ok(true);
-            }
+    for byte in &buf[..n] {
+        if *byte == 0 {
+            return Ok(true);
         }
     }
-
     Ok(false)
 }
 
