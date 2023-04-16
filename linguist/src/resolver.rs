@@ -128,7 +128,9 @@ impl InMemoryLanguageContainer {
 
 impl Container for InMemoryLanguageContainer {
     fn get_language_by_name(&self, name: &str) -> Option<&Language> {
-        self.languages.iter().find(|lang| lang.name == *name)
+        self.languages
+            .iter()
+            .find(|lang| lang.name.to_lowercase() == *name.to_lowercase())
     }
 
     fn get_languages_by_extension(&self, file: impl AsRef<Path>) -> Option<Vec<&Language>> {
@@ -331,20 +333,32 @@ pub fn resolve_language(
 
     if let Ok(candidates) = resolve_languages_by_filename(&file, container) {
         for candidate in candidates {
-            *probabilities.entry(candidate.name.clone()).or_insert(1) += 1;
+            *probabilities
+                .entry(candidate.name.clone().to_lowercase())
+                .or_insert(1) += 1;
+        }
+    }
+
+    if let Ok(Some(candidate)) = resolve_languages_by_shebang(&file, container) {
+        for lang in candidate {
+            *probabilities
+                .entry(lang.name.clone().to_lowercase())
+                .or_insert(1) += 1;
         }
     }
 
     if let Ok(candidates) = resolve_languages_by_extension(&file, container) {
         for candidate in candidates {
-            *probabilities.entry(candidate.name.clone()).or_insert(1) += 1;
+            *probabilities
+                .entry(candidate.name.clone().to_lowercase())
+                .or_insert(1) += 1;
         }
     }
 
-    if let Ok(candidate) = resolve_language_by_content(&file, container) {
-        if let Some(candidate) = candidate {
-            *probabilities.entry(candidate.name.clone()).or_insert(1) += 1;
-        }
+    if let Ok(Some(candidate)) = resolve_language_by_content(&file, container) {
+        *probabilities
+            .entry(candidate.name.clone().to_lowercase())
+            .or_insert(1) += 1;
     }
 
     let mut ordered: Vec<(&String, &usize)> = probabilities.iter().collect();
