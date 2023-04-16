@@ -32,7 +32,7 @@ pub fn load_github_linguist_languages(
         for (name, lang) in defs.iter() {
             languages.push(Language {
                 name: name.clone(),
-                scope: lang.scope.clone(),
+                scope: lang.scope.clone().into(),
                 extensions: lang
                     .extensions
                     .clone()

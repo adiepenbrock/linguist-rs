@@ -15,7 +15,7 @@ pub struct Language {
     pub parent: Option<String>,
     pub name: String,
     pub aliases: Vec<String>,
-    pub scope: String,
+    pub scope: Scope,
     pub extensions: Vec<OsString>,
     pub filenames: Vec<OsString>,
     pub color: Option<String>,
@@ -24,6 +24,40 @@ pub struct Language {
 impl Display for Language {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.name)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum Scope {
+    Programming,
+    Markup,
+    Data,
+    Prose,
+    Unknown,
+}
+
+impl From<String> for Scope {
+    fn from(value: String) -> Self {
+        match value.to_lowercase().as_str() {
+            "programming" => Scope::Programming,
+            "markup" => Scope::Markup,
+            "data" => Scope::Data,
+            "prose" => Scope::Prose,
+            _ => Scope::Unknown,
+        }
+    }
+}
+
+impl From<&str> for Scope {
+    fn from(value: &str) -> Self {
+        match value.to_lowercase().as_str() {
+            "programming" => Scope::Programming,
+            "markup" => Scope::Markup,
+            "data" => Scope::Data,
+            "prose" => Scope::Prose,
+            _ => Scope::Unknown,
+        }
     }
 }
 

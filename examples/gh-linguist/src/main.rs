@@ -47,6 +47,10 @@ fn main() {
             continue;
         };
 
+        if language.scope != Scope::Programming && language.scope != Scope::Markup {
+            continue;
+        }
+
         breakdown.add_usage(&language.name, entry.metadata().unwrap().size());
     }
     println!("{}", breakdown);
