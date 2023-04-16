@@ -1,5 +1,8 @@
 use fancy_regex::Regex;
-use std::{io::Read, path::Path};
+use std::{
+    io::{BufRead, Cursor, Read},
+    path::Path,
+};
 
 use crate::resolver::LinguistError;
 
@@ -64,4 +67,40 @@ pub fn is_binary(path: impl AsRef<Path>) -> Result<bool, LinguistError> {
 
 pub fn is_generated(_file: impl AsRef<Path>) -> bool {
     false
+}
+
+pub(crate) fn has_shebang(data: &[u8]) -> bool {
+    data.starts_with(b"#!")
+}
+
+pub(crate) fn determine_multiline_exec(data: &[u8]) -> Option<String> {
+    let mut interpreter = "sh";
+    let mut cursor = Cursor::new(data);
+    let mut buf = String::new();
+
+    let shebang_exec = Regex::new(r#"exec (\w+).+\$0.+\$@"#).unwrap();
+
+    for _i in 0..5 {
+        buf.clear();
+        if let Ok(result) = cursor.read_line(&mut buf) {
+            if result == 0 {
+                break;
+            }
+        }
+
+        if let Ok(result) = shebang_exec.is_match(&buf) {
+            if result {
+                interpreter = shebang_exec
+                    .captures(&buf)
+                    .unwrap()
+                    .unwrap()
+                    .get(1)
+                    .unwrap()
+                    .into();
+                break;
+            }
+        }
+    }
+
+    Some(interpreter.to_string())
 }

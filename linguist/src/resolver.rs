@@ -1,13 +1,15 @@
 use std::collections::HashMap;
 use std::ffi::OsString;
 use std::fmt::Display;
+use std::io::{BufRead, BufReader};
 use std::path::Path;
+
 use std::usize;
 
 #[cfg(feature = "matcher")]
 use fancy_regex::Regex;
 
-use crate::utils::is_binary;
+use crate::utils::{determine_multiline_exec, has_shebang, is_binary};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -18,6 +20,7 @@ pub struct Language {
     pub scope: Scope,
     pub extensions: Vec<OsString>,
     pub filenames: Vec<OsString>,
+    pub interpreters: Vec<String>,
     pub color: Option<String>,
 }
 
@@ -94,6 +97,7 @@ pub trait Container {
     fn get_language_by_name(&self, name: &str) -> Option<&Language>;
     fn get_languages_by_extension(&self, file: impl AsRef<Path>) -> Option<Vec<&Language>>;
     fn get_languages_by_filename(&self, file: impl AsRef<Path>) -> Option<Vec<&Language>>;
+    fn get_languages_by_interpreter(&self, interpreter: &str) -> Option<Vec<&Language>>;
     #[cfg(feature = "matcher")]
     fn get_heuristics_by_extension(&self, file: impl AsRef<Path>) -> Option<&Vec<HeuristicRule>>;
 }
@@ -176,6 +180,20 @@ impl Container for InMemoryLanguageContainer {
         let heuristics = self.heuristics.get(&ext.to_os_string());
         heuristics
     }
+
+    fn get_languages_by_interpreter(&self, interpreter: &str) -> Option<Vec<&Language>> {
+        let interpreters: Vec<&Language> = self
+            .languages
+            .iter()
+            .filter(|lang| lang.interpreters.contains(&interpreter.to_string()))
+            .collect();
+
+        if !interpreters.is_empty() {
+            Some(interpreters)
+        } else {
+            None
+        }
+    }
 }
 
 pub fn resolve_languages_by_filename(
@@ -221,6 +239,84 @@ pub fn resolve_language_by_content(
     }
 
     Err(LinguistError::LanguageNotFound)
+}
+
+pub fn resolve_languages_by_shebang(
+    file: impl AsRef<Path>,
+    container: &impl Container,
+) -> Result<Option<Vec<&Language>>, LinguistError> {
+    // load first line of file
+    let file = match std::fs::File::open(&file) {
+        Ok(file) => file,
+        Err(err) => return Err(LinguistError::IOError(err)),
+    };
+    let mut buf = BufReader::new(file);
+    let mut line = String::new();
+    let _ = buf.read_line(&mut line);
+
+    // check whether the first line of the file is a shebang
+    if !has_shebang(line.as_bytes()) {
+        return Ok(None);
+    }
+
+    let line = line[2..].trim();
+    let mut fields = line.split_whitespace().collect::<Vec<&str>>();
+    if fields.is_empty() {
+        return Ok(None);
+    }
+
+    let mut interpreter = Path::new(fields[0])
+        .file_name()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_owned();
+
+    if interpreter == "env" {
+        if fields.len() == 1 {
+            return Ok(None);
+        }
+
+        let env_opt_args = Regex::new(r"^-[a-zA-Z]+$").unwrap();
+        let env_var_args = Regex::new(r"^\$[a-zA-Z_]+$").unwrap();
+
+        let _i = 1;
+        while fields.len() > 2 {
+            if env_opt_args.is_match(fields[1])? || env_var_args.is_match(fields[1])? {
+                fields.remove(1);
+                continue;
+            }
+            break;
+        }
+        interpreter = Path::new(fields[1])
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_owned();
+    }
+
+    let mut interpreter = interpreter;
+    if interpreter == "sh" {
+        interpreter = determine_multiline_exec(buf.buffer()).unwrap();
+    }
+
+    let python_version = Regex::new(r"^python[0-9]*\.[0-9]*").unwrap();
+    if python_version.is_match(&interpreter)? {
+        interpreter = interpreter.split('.').next().unwrap().to_owned();
+    }
+    // If osascript is called with argument -l it could be different language so do not rely on it
+    // To match linguist behavior, see ref https://github.com/github/linguist/blob/d95bae794576ab0ef2fcb41a39eb61ea5302c5b5/lib/linguist/shebang.rb#L63
+    if interpreter == "osascript" && line.contains("-l") {
+        interpreter = "".to_string();
+    }
+
+    let results = container.get_languages_by_interpreter(&interpreter);
+    if results.is_some() {
+        Ok(results)
+    } else {
+        Ok(None)
+    }
 }
 
 pub fn resolve_language(

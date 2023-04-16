@@ -14,6 +14,7 @@ struct GhLanguageDef {
     aliases: Option<Vec<String>>,
     extensions: Option<Vec<String>>,
     filenames: Option<Vec<String>>,
+    interpreters: Option<Vec<String>>,
     group: Option<String>,
 }
 
@@ -49,6 +50,7 @@ pub fn load_github_linguist_languages(
                     .iter()
                     .map(OsString::from)
                     .collect(),
+                interpreters: lang.interpreters.clone().unwrap_or(vec![]),
                 aliases: lang.aliases.clone().unwrap_or(vec![]),
                 color: lang.color.clone(),
                 parent: lang.group.clone(),
