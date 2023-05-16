@@ -1,12 +1,12 @@
 use crate::resolver::{HeuristicRule, Language, LinguistError};
-use serde::Deserialize;
+use crate::utils::is_unsupported_regex_syntax;
 use std::collections::HashMap;
 use std::ffi::OsString;
 
 use std::fmt::Display;
 use std::path::Path;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, serde::Deserialize)]
 struct GhLanguageDef {
     color: Option<String>,
     #[serde(rename = "type")]
@@ -61,13 +61,13 @@ pub fn load_github_linguist_languages(
     Ok(languages)
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, serde::Deserialize)]
 struct Disambiguation {
     extensions: Vec<String>,
     rules: Vec<Rule>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, serde::Deserialize)]
 struct Rule {
     language: RuleLanguage,
     #[serde(rename = "and")]
@@ -75,7 +75,7 @@ struct Rule {
     pattern: Option<PatternValue>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, serde::Deserialize)]
 #[serde(untagged)]
 enum RuleLanguage {
     Single(String),
@@ -91,7 +91,7 @@ impl Display for RuleLanguage {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, serde::Deserialize)]
 #[serde(untagged)]
 enum PatternValue {
     Single(String),
@@ -107,13 +107,13 @@ impl Display for PatternValue {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, serde::Deserialize)]
 struct NamedPattern {
     pattern: Option<String>,
     named_pattern: Option<PatternValue>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, serde::Deserialize)]
 struct YamlContent {
     disambiguations: Vec<Disambiguation>,
     named_patterns: HashMap<String, RuleLanguage>,
@@ -187,7 +187,14 @@ pub fn load_github_linguist_heuristics(
 
 pub fn load_github_vendors(path: impl AsRef<Path>) -> Result<Vec<String>, LinguistError> {
     let content = std::fs::read_to_string(path).expect("unable to open vendors file");
-    let data = serde_yaml::from_str::<Vec<String>>(&content).unwrap();
+    let raw = serde_yaml::from_str::<Vec<String>>(&content).unwrap();
+
+    let mut data: Vec<String> = Vec::new();
+    for rule in raw {
+        if !is_unsupported_regex_syntax(rule.as_str()) {
+            data.push(rule.to_string());
+        }
+    }
 
     Ok(data)
 }

@@ -7,7 +7,7 @@ use std::path::Path;
 use std::usize;
 
 #[cfg(feature = "matcher")]
-use fancy_regex::Regex;
+use regex::Regex;
 
 use crate::utils::{determine_multiline_exec, has_shebang, is_binary};
 
@@ -77,7 +77,7 @@ pub enum LinguistError {
     LanguageNotFound,
     #[cfg(feature = "serde")]
     FileNotFound,
-    PatternCompileError(fancy_regex::Error),
+    PatternCompileError(regex::Error),
     IOError(std::io::Error),
 }
 
@@ -87,8 +87,8 @@ impl From<std::io::Error> for LinguistError {
     }
 }
 
-impl From<fancy_regex::Error> for LinguistError {
-    fn from(value: fancy_regex::Error) -> Self {
+impl From<regex::Error> for LinguistError {
+    fn from(value: regex::Error) -> Self {
         LinguistError::PatternCompileError(value)
     }
 }
@@ -232,10 +232,8 @@ pub fn resolve_language_by_content(
         for rule in rules {
             let matcher = Regex::new(&rule.patterns.join("|"))?;
 
-            if let Ok(result) = matcher.is_match(&content) {
-                if result {
-                    return Ok(container.get_language_by_name(&rule.language));
-                }
+            if matcher.is_match(&content) {
+                return Ok(container.get_language_by_name(&rule.language));
             }
         }
     }
@@ -284,7 +282,7 @@ pub fn resolve_languages_by_shebang(
 
         let _i = 1;
         while fields.len() > 2 {
-            if env_opt_args.is_match(fields[1])? || env_var_args.is_match(fields[1])? {
+            if env_opt_args.is_match(fields[1]) || env_var_args.is_match(fields[1]) {
                 fields.remove(1);
                 continue;
             }
@@ -304,7 +302,7 @@ pub fn resolve_languages_by_shebang(
     }
 
     let python_version = Regex::new(r"^python[0-9]*\.[0-9]*").unwrap();
-    if python_version.is_match(&interpreter)? {
+    if python_version.is_match(&interpreter) {
         interpreter = interpreter.split('.').next().unwrap().to_owned();
     }
     // If osascript is called with argument -l it could be different language so do not rely on it

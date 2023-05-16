@@ -1,8 +1,9 @@
-use fancy_regex::Regex;
 use std::{
     io::{BufRead, Cursor, Read},
     path::Path,
 };
+
+use regex::Regex;
 
 use crate::resolver::LinguistError;
 
@@ -38,10 +39,7 @@ pub fn is_vendor(file: impl AsRef<Path>, rules: Vec<String>) -> bool {
     for rule in rules {
         let matcher = Regex::new(&rule).unwrap();
 
-        if matcher
-            .is_match(file.as_ref().to_path_buf().to_str().unwrap())
-            .unwrap()
-        {
+        if matcher.is_match(file.as_ref().to_path_buf().to_str().unwrap()) {
             return true;
         }
     }
@@ -88,19 +86,29 @@ pub(crate) fn determine_multiline_exec(data: &[u8]) -> Option<String> {
             }
         }
 
-        if let Ok(result) = shebang_exec.is_match(&buf) {
-            if result {
-                interpreter = shebang_exec
-                    .captures(&buf)
-                    .unwrap()
-                    .unwrap()
-                    .get(1)
-                    .unwrap()
-                    .into();
-                break;
-            }
+        if shebang_exec.is_match(&buf) {
+            interpreter = shebang_exec.captures(&buf).unwrap().get(1).unwrap().into();
+            break;
         }
     }
 
     Some(interpreter.to_string())
+}
+
+/// Checks whether the supplied input contains constructs that are not supported by the
+/// [regex crate](https://crates.io/crates/regex), e.g.:
+/// - lookbehind & lookahead
+/// - non-backtracking subexpressions
+/// - named & numbered capturing group / after text matching
+/// - backreference
+/// - possessive quantifier
+///
+/// For a detailed reference on supported syntax see [RE2 Syntax](https://github.com/google/re2/wiki/Syntax)
+pub(crate) fn is_unsupported_regex_syntax(input: &str) -> bool {
+    input.contains("(?<")
+        || input.contains("(?=")
+        || input.contains("(?!")
+        || input.contains("(?>")
+        || input.contains("\\1")
+        || input.contains("*+")
 }
