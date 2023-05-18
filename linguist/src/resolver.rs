@@ -64,14 +64,14 @@ impl From<&str> for Scope {
     }
 }
 
-impl ToString for Scope {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for Scope {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Scope::Programming => "Programming".to_string(),
-            Scope::Markup => "Markup".to_string(),
-            Scope::Data => "Data".to_string(),
-            Scope::Prose => "Prose".to_string(),
-            Scope::Unknown => "Unknown".to_string(),
+            Scope::Programming => write!(f, "Programming"),
+            Scope::Markup => write!(f, "Markup"),
+            Scope::Data => write!(f, "Data"),
+            Scope::Prose => write!(f, "Prose"),
+            Scope::Unknown => write!(f, "Unknown"),
         }
     }
 }
