@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "linguist",
+    "linguist-build",
     "examples/*"
 ]
 resolver = "2"

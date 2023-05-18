@@ -64,6 +64,18 @@ impl From<&str> for Scope {
     }
 }
 
+impl ToString for Scope {
+    fn to_string(&self) -> String {
+        match self {
+            Scope::Programming => "Programming".to_string(),
+            Scope::Markup => "Markup".to_string(),
+            Scope::Data => "Data".to_string(),
+            Scope::Prose => "Prose".to_string(),
+            Scope::Unknown => "Unknown".to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "matcher", derive(serde::Serialize, serde::Deserialize))]
 pub struct HeuristicRule {

@@ -7,3 +7,5 @@ edition = "2021"
 walkdir = "2.3"
 linguist-rs = { path = "../../linguist", features = ["default", "github-linguist-yaml"] }
 
+[build-dependencies]
+linguist-rs-build = { path = "../../linguist-build" }

@@ -1,30 +1,25 @@
 use linguist::{
-    github::{
-        load_github_linguist_heuristics, load_github_linguist_languages, load_github_vendors,
-    },
     resolver::{resolve_language, InMemoryLanguageContainer, Scope},
-    utils::{is_configuration, is_dotfile, is_vendor},
+    utils::{is_configuration, is_documentation, is_dotfile, is_vendor},
 };
-use std::os::unix::fs::MetadataExt;
-use std::{collections::HashMap, fmt::Display, path::Path};
+use std::{collections::HashMap, fmt::Display, os::unix::prelude::MetadataExt, path::Path};
 use walkdir::WalkDir;
 
+pub mod predefined {
+    include!(concat!(env!("OUT_DIR"), "/github_linguist_languages.rs"));
+    include!(concat!(env!("OUT_DIR"), "/github_linguist_heuristics.rs"));
+    include!(concat!(env!("OUT_DIR"), "/github_linguist_vendors.rs"));
+}
+
 fn main() {
-    let ldp = std::env::var("LANGUAGE_DEF_PATH").expect("cannot find env `LANGUAGE_DEF_PATH`");
-    let lhp = std::env::var("HEURISTIC_DEF_PATH").expect("cannot find env `HEURISTIC_DEF_PATH`");
-    let lvp = std::env::var("VENDOR_DEF_PATH").expect("cannot find env `VENDOR_DEF_PATH`");
     let args: Vec<String> = std::env::args().collect();
 
-    let languages = load_github_linguist_languages(ldp).unwrap();
-    let heuristics = load_github_linguist_heuristics(lhp).unwrap();
-    let vendors = load_github_vendors(lvp).unwrap();
-
     let mut lc = InMemoryLanguageContainer::default();
-    for lang in languages {
+    for lang in predefined::github_languages() {
         lc.register_language(lang);
     }
 
-    for h in heuristics {
+    for h in predefined::github_heuristics() {
         for ext in &h.extensions {
             lc.register_heuristic_rule(ext.clone(), h.clone());
         }
@@ -51,9 +46,11 @@ fn main() {
             continue;
         }
 
-        if is_vendor(entry.path(), vendors.clone())
-            || is_dotfile(entry.path())
-            || is_configuration(entry.path())
+        let relative_path = entry.path().strip_prefix(root).unwrap();
+        if is_vendor(relative_path, predefined::github_vendors().clone())
+            || is_documentation(relative_path)
+            || is_dotfile(relative_path)
+            || is_configuration(relative_path)
         {
             continue;
         }
