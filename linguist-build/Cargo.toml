@@ -1,5 +1,6 @@
 [package]
 name = "linguist-rs-build"
+description = "A build script for linguist-rs"
 version = "0.7.1"
 edition = "2021"
 license = "MIT"
