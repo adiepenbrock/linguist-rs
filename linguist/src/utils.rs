@@ -17,21 +17,34 @@ pub fn is_configuration(file: impl AsRef<Path>) -> bool {
     false
 }
 
-pub fn is_documentation(_file: impl AsRef<Path>) -> bool {
-    false
+pub fn is_documentation(file: impl AsRef<Path>) -> bool {
+    const RULES: [&str; 18] = [
+        "[Dd]ocs?/",
+        "(^|/)[Dd]ocumentation/",
+        "(^|/)[Gg]roovydoc/",
+        "(^|/)[Jj]avadoc/",
+        "^[Mm]an/",
+        "^[Ee]xamples/",
+        "^[Dd]emos?/",
+        "(^|/)inst/doc/",
+        "(^|/)CITATION(\\.cff|(S)?(\\.(bib|md))?)$",
+        "(^|/)CHANGE(S|LOG)?(\\.|$)",
+        "(^|/)CONTRIBUTING(\\.|$)",
+        "(^|/)COPYING(\\.|$)",
+        "(^|/)INSTALL(\\.|$)",
+        "(^|/)LICEN[CS]E(\\.|$)",
+        "(^|/)[Ll]icen[cs]e(\\.|$)",
+        "(^|/)README(\\.|$)",
+        "(^|/)[Rr]eadme(\\.|$)",
+        "^[Ss]amples?/",
+    ];
+    let matcher = Regex::new(&RULES.join("|")).unwrap();
+    matcher.is_match(file.as_ref().display().to_string().as_str())
 }
 
 /// Check if a file is a dotfile by checking if it starts with a dot.
 pub fn is_dotfile(file: impl AsRef<Path>) -> bool {
-    if let Some(name) = file
-        .as_ref()
-        .to_path_buf()
-        .file_name()
-        .and_then(|name| name.to_str())
-    {
-        return name.starts_with('.') && name != ".";
-    }
-    false
+    file.as_ref().display().to_string().starts_with(".")
 }
 
 /// Check if a file is a vendor file by checking if it matches any of the vendor rules.
