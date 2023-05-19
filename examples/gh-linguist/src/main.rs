@@ -2,24 +2,26 @@ use linguist::{
     resolver::{resolve_language, InMemoryLanguageContainer, Scope},
     utils::{is_configuration, is_documentation, is_dotfile, is_vendor},
 };
+use regex::RegexSet;
 use std::{collections::HashMap, fmt::Display, os::unix::prelude::MetadataExt, path::Path};
 use walkdir::WalkDir;
 
 pub mod predefined {
-    include!(concat!(env!("OUT_DIR"), "/github_linguist_languages.rs"));
-    include!(concat!(env!("OUT_DIR"), "/github_linguist_heuristics.rs"));
-    include!(concat!(env!("OUT_DIR"), "/github_linguist_vendors.rs"));
+    include!(concat!(env!("OUT_DIR"), "/languages.rs"));
+    include!(concat!(env!("OUT_DIR"), "/heuristics.rs"));
+    include!(concat!(env!("OUT_DIR"), "/vendors.rs"));
+    include!(concat!(env!("OUT_DIR"), "/documentation.rs"));
 }
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
 
     let mut lc = InMemoryLanguageContainer::default();
-    for lang in predefined::github_languages() {
+    for lang in predefined::languages() {
         lc.register_language(lang);
     }
 
-    for h in predefined::github_heuristics() {
+    for h in predefined::heuristics() {
         for ext in &h.extensions {
             lc.register_heuristic_rule(ext.clone(), h.clone());
         }
@@ -40,6 +42,9 @@ fn main() {
     // breakdown of all considered files...
     // let mut stats: HashMap<String, Vec<String>> = HashMap::new();
 
+    let rules = RegexSet::new(predefined::VENDORS).unwrap();
+    let docs = RegexSet::new(predefined::DOCUMENTATION).unwrap();
+
     let walker = WalkDir::new(root);
     for entry in walker.into_iter().flatten() {
         if entry.path().is_dir() {
@@ -47,8 +52,8 @@ fn main() {
         }
 
         let relative_path = entry.path().strip_prefix(root).unwrap();
-        if is_vendor(relative_path, predefined::github_vendors().clone())
-            || is_documentation(relative_path)
+        if is_vendor(entry.path(), &rules)
+            || is_documentation(relative_path, &docs)
             || is_dotfile(relative_path)
             || is_configuration(relative_path)
         {

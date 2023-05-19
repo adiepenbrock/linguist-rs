@@ -1,32 +1,61 @@
-use std::{io::Write, path::PathBuf};
+use std::{
+    io::Write,
+    path::{Path, PathBuf},
+};
 
 use linguist::{
     github::{
-        load_github_linguist_heuristics, load_github_linguist_languages, load_github_vendors,
+        load_github_documentation, load_github_linguist_heuristics, load_github_linguist_languages,
+        load_github_vendors,
     },
     resolver::{HeuristicRule, Language},
 };
+use tempfile::tempdir;
 
-pub static GITHUB_LINGUIST_LANGUAGES_URL: &'static str =
+pub static GITHUB_LINGUIST_LANGUAGES_URL: &str =
     "https://raw.githubusercontent.com/github-linguist/linguist/master/lib/linguist/languages.yml";
-pub static GITHUB_LINGUIST_HEURISTICS_URL: &'static str =
+pub static GITHUB_LINGUIST_HEURISTICS_URL: &str =
     "https://raw.githubusercontent.com/github-linguist/linguist/master/lib/linguist/heuristics.yml";
-pub static GITHUB_LINGUIST_VENDOR_URL: &'static str =
+pub static GITHUB_LINGUIST_VENDORS_URL: &str =
+    "https://raw.githubusercontent.com/github-linguist/linguist/master/lib/linguist/vendor.yml";
+pub static GITHUB_LINGUIST_DOCUMENTATION_URL: &str =
     "https://raw.githubusercontent.com/github-linguist/linguist/master/lib/linguist/vendor.yml";
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Config {
-    // out_path: PathBuf,
-    definitions: Vec<DefinitionSet>,
+    out_path: PathBuf,
+    definitions: Vec<Definition>,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Config {
-            // out_path: PathBuf::from(std::env::var_os("OUT_DIR")),
+            out_path: PathBuf::from(std::env::var_os("OUT_DIR").unwrap()),
             definitions: vec![],
         }
     }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Definition {
+    pub name: String,
+    pub location: Location,
+    pub kind: Kind,
+}
+
+/// Location is used to specify the path to the respective [`Definition`].
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum Location {
+    Path(PathBuf),
+    URL(String),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum Kind {
+    Languages,
+    Heuristics,
+    Vendors,
+    Documentation,
 }
 
 impl Config {
@@ -35,135 +64,128 @@ impl Config {
         Self::default()
     }
 
-    /// Adds a [definition](DefinitionSet) to the `Config`.
-    pub fn add_definition(&mut self, definition: DefinitionSet) -> &mut Self {
+    /// Adds a [definition](Definition) to the `Config`.
+    pub fn add_definition(&mut self, definition: Definition) -> &mut Self {
         self.definitions.push(definition);
         self
     }
 
+    fn download_from_url(&self, out_dir: &Path, url: &str) -> Result<PathBuf, ()> {
+        match reqwest::blocking::get(url) {
+            Ok(result) => {
+                let path = out_dir.join("file");
+                let mut file = std::fs::File::create(path.clone()).expect("cannot create tempfile");
+                std::io::copy(
+                    &mut result
+                        .text()
+                        .expect("cannot unwrap response file")
+                        .as_bytes(),
+                    &mut file,
+                )
+                .expect("cannot copy reponse into file");
+                Ok(path)
+            }
+            Err(_) => Err(()),
+        }
+    }
+
+    fn generate_language(&self, name: &str, location: Location) {
+        let tmpdir = tempdir().expect("failed to create a tempdir");
+        let def_file = match location {
+            Location::URL(url) => self.download_from_url(tmpdir.path(), &url).unwrap(),
+            Location::Path(path) => path,
+        };
+
+        let data = load_github_linguist_languages(def_file).unwrap();
+        let mut entries: Vec<String> = Vec::new();
+        for item in data.iter() {
+            entries.push(write_language_definition(item));
+        }
+
+        let target_path = self.out_path.clone();
+        let mut target_file = std::fs::File::create(target_path.join(name)).unwrap();
+        _ = target_file.write_all("use std::ffi::OsString;\nuse linguist::resolver::{Language, Scope};\n\npub fn languages() -> Vec<Language> {\n let langs: Vec<Language> = vec![".to_string().as_bytes());
+        for str in entries {
+            _ = target_file.write_all(format!("    {},\n", str).as_bytes());
+        }
+        _ = target_file.write_all("];\nlangs\n}\n".to_string().as_bytes());
+        _ = target_file.flush();
+    }
+
+    fn generate_heuristics(&self, name: &str, location: Location) {
+        let tmpdir = tempdir().expect("failed to create a tempdir");
+        let def_file = match location {
+            Location::URL(url) => self.download_from_url(tmpdir.path(), &url).unwrap(),
+            Location::Path(path) => path,
+        };
+
+        let data = load_github_linguist_heuristics(def_file).unwrap();
+        let mut entries: Vec<String> = Vec::new();
+        for item in data.iter() {
+            entries.push(write_heuristic_definition(item));
+        }
+
+        let target_path = self.out_path.clone();
+        let mut target_file = std::fs::File::create(target_path.join(name)).unwrap();
+        _ = target_file.write_all("use linguist::resolver::HeuristicRule;\n\npub fn heuristics() -> Vec<HeuristicRule> {\n let langs: Vec<HeuristicRule> = vec![".to_string().as_bytes());
+        for str in entries {
+            _ = target_file.write_all(format!("    {},\n", str).as_bytes());
+        }
+        _ = target_file.write_all("];\nlangs\n}\n".to_string().as_bytes());
+        _ = target_file.flush();
+    }
+
+    fn generate_vendors(&self, name: &str, location: Location) {
+        let tmpdir = tempdir().expect("failed to create a tempdir");
+        let def_file = match location {
+            Location::URL(url) => self.download_from_url(tmpdir.path(), &url).unwrap(),
+            Location::Path(path) => path,
+        };
+
+        let data = load_github_vendors(def_file).unwrap();
+
+        let target_path = self.out_path.clone();
+        let mut target_file = std::fs::File::create(target_path.join(name)).unwrap();
+        _ = target_file
+            .write_all(format!("pub static VENDORS: &[&str; {}] = &[", data.len()).as_bytes());
+        for str in data {
+            _ = target_file.write_all(format!("    r\"{}\",\n", str).as_bytes());
+        }
+
+        _ = target_file.write_all("];\n".to_string().as_bytes());
+        _ = target_file.flush();
+    }
+
+    fn generate_documentation(&self, name: &str, location: Location) {
+        let tmpdir = tempdir().expect("failed to create a tempdir");
+        let def_file = match location {
+            Location::URL(url) => self.download_from_url(tmpdir.path(), &url).unwrap(),
+            Location::Path(path) => path,
+        };
+
+        let data = load_github_documentation(def_file).unwrap();
+
+        let target_path = self.out_path.clone();
+        let mut target_file = std::fs::File::create(target_path.join(name)).unwrap();
+        _ = target_file.write_all(
+            format!("pub static DOCUMENTATION: &[&str; {}] = &[", data.len()).as_bytes(),
+        );
+        for str in data {
+            _ = target_file.write_all(format!("    r\"{}\",\n", str).as_bytes());
+        }
+
+        _ = target_file.write_all("];\n".to_string().as_bytes());
+        _ = target_file.flush();
+    }
+
     pub fn generate(&self) {
-        let tempdir = tempfile::tempdir().expect("failed to create tempdir");
-
         for def in self.definitions.iter() {
-            if let Some(path) = &def.language_url {
-                match reqwest::blocking::get(path) {
-                    Ok(result) => {
-                        let path = tempdir.path().join(format!("{}_langs.yml", &def.out_name));
-                        let mut out_file =
-                            std::fs::File::create(path.clone()).expect("cannot create out_file");
-                        std::io::copy(
-                            &mut result
-                                .text()
-                                .expect("cannot unwrap definition response")
-                                .as_bytes(),
-                            &mut out_file,
-                        )
-                        .expect("cannot copy temp definition file");
-
-                        let languages = load_github_linguist_languages(path.clone()).unwrap();
-
-                        let mut lang_defs: Vec<String> = Vec::new();
-                        languages.iter().for_each(|lang| {
-                            lang_defs.push(write_language_definition(lang));
-                        });
-
-                        let target_path = PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
-                        let mut target_file = std::fs::File::create(
-                            target_path.join(format!("{}_languages.rs", &def.out_name)),
-                        )
-                        .unwrap();
-
-                        // TODO: maybe it would be better if we have the Languages as static values instead of a function...
-                        _ = target_file.write_all(format!("use std::ffi::OsString;\nuse linguist::resolver::{{Language, Scope}};\n\npub fn github_languages() -> Vec<Language> {{\n let langs: Vec<Language> = vec![").as_bytes());
-                        for str in lang_defs {
-                            _ = target_file.write_all(format!("    {},\n", str).as_bytes());
-                        }
-                        _ = target_file.write_all(format!("];\nlangs\n}}\n").as_bytes());
-                        _ = target_file.flush();
-                    }
-                    Err(err) => eprintln!("{:?}", err),
-                }
-            }
-            if let Some(path) = &def.heuristics_url {
-                match reqwest::blocking::get(path) {
-                    Ok(result) => {
-                        let path = tempdir
-                            .path()
-                            .join(format!("{}_heuristics.yml", &def.out_name));
-                        let mut out_file =
-                            std::fs::File::create(path.clone()).expect("cannot create out_file");
-                        std::io::copy(
-                            &mut result
-                                .text()
-                                .expect("cannot unwrap heuristics response")
-                                .as_bytes(),
-                            &mut out_file,
-                        )
-                        .expect("cannot copy temp heuristics file");
-
-                        let raw = load_github_linguist_heuristics(path.clone()).unwrap();
-
-                        let mut heuristics: Vec<String> = Vec::new();
-                        raw.iter().for_each(|heuristic| {
-                            heuristics.push(write_heuristic_definition(heuristic));
-                        });
-
-                        let target_path = PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
-                        let mut target_file = std::fs::File::create(
-                            target_path.join(format!("{}_heuristics.rs", &def.out_name)),
-                        )
-                        .unwrap();
-
-                        // TODO: maybe it would be better if we have the Languages as static values instead of a function...
-                        _ = target_file.write_all(format!("use linguist::resolver::HeuristicRule;\n\npub fn github_heuristics() -> Vec<HeuristicRule> {{\n let langs: Vec<HeuristicRule> = vec![").as_bytes());
-                        for str in heuristics {
-                            _ = target_file.write_all(format!("    {},\n", str).as_bytes());
-                        }
-                        _ = target_file.write_all(format!("];\nlangs\n}}\n").as_bytes());
-                        _ = target_file.flush();
-                    }
-                    Err(err) => eprintln!("{:?}", err),
-                }
-            }
-            if let Some(path) = &def.vendor_url {
-                match reqwest::blocking::get(path) {
-                    Ok(result) => {
-                        let path = tempdir
-                            .path()
-                            .join(format!("{}_vendors.yml", &def.out_name));
-                        let mut out_file =
-                            std::fs::File::create(path.clone()).expect("cannot create out_file");
-                        std::io::copy(
-                            &mut result
-                                .text()
-                                .expect("cannot unwrap vendors response")
-                                .as_bytes(),
-                            &mut out_file,
-                        )
-                        .expect("cannot copy temp vendors file");
-
-                        let vendors = load_github_vendors(path.clone()).unwrap();
-
-                        let target_path = PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
-                        let mut target_file = std::fs::File::create(
-                            target_path.join(format!("{}_vendors.rs", &def.out_name)),
-                        )
-                        .unwrap();
-
-                        // TODO: maybe it would be better if we have the Languages as static values instead of a function...
-                        _ = target_file.write_all(format!("pub fn github_vendors() -> Vec<String> {{\n let vendors: Vec<String> = vec![").as_bytes());
-                        for str in vendors {
-                            _ = target_file.write_all(
-                                format!("    \"{}\".to_string(),\n", str.replace("\\", "\\\\"))
-                                    .as_bytes(),
-                            );
-                        }
-                        _ = target_file.write_all(format!("];\nvendors\n}}\n").as_bytes());
-                        _ = target_file.flush();
-                    }
-                    Err(err) => eprintln!("{:?}", err),
-                }
-            }
+            match def.kind {
+                Kind::Languages => self.generate_language(&def.name, def.location.clone()),
+                Kind::Heuristics => self.generate_heuristics(&def.name, def.location.clone()),
+                Kind::Vendors => self.generate_vendors(&def.name, def.location.clone()),
+                Kind::Documentation => self.generate_documentation(&def.name, def.location.clone()),
+            };
         }
     }
 }
@@ -173,25 +195,6 @@ impl std::fmt::Debug for Config {
         f.debug_struct("Config")
             .field("definitions", &self.definitions)
             .finish()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DefinitionSet {
-    pub language_url: Option<String>,
-    pub heuristics_url: Option<String>,
-    pub vendor_url: Option<String>,
-    pub out_name: String,
-}
-
-impl Default for DefinitionSet {
-    fn default() -> Self {
-        DefinitionSet {
-            language_url: None,
-            heuristics_url: None,
-            vendor_url: None,
-            out_name: "linguist".to_string(),
-        }
     }
 }
 
@@ -289,7 +292,7 @@ fn write_language_definition(lang: &Language) -> String {
         str.push_str("color: None ");
     }
 
-    str.push_str("}");
+    str.push('}');
     str
 }
 
@@ -328,7 +331,7 @@ fn write_heuristic_definition(rule: &HeuristicRule) -> String {
                     .iter()
                     .map(|s| format!(
                         "\"{}\".to_string()",
-                        s.replace("\\", "\\\\").replace("\"", "\\\"")
+                        s.replace('\\', "\\\\").replace('\"', "\\\"")
                     ))
                     .collect::<Vec<String>>()
                     .join(", ")
@@ -339,6 +342,6 @@ fn write_heuristic_definition(rule: &HeuristicRule) -> String {
         str.push_str("patterns: vec![] ");
     }
 
-    str.push_str("}");
+    str.push('}');
     str
 }

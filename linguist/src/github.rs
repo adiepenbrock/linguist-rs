@@ -198,3 +198,17 @@ pub fn load_github_vendors(path: impl AsRef<Path>) -> Result<Vec<String>, Lingui
 
     Ok(data)
 }
+
+pub fn load_github_documentation(path: impl AsRef<Path>) -> Result<Vec<String>, LinguistError> {
+    let content = std::fs::read_to_string(path).expect("unable to open vendors file");
+    let raw = serde_yaml::from_str::<Vec<String>>(&content).unwrap();
+
+    let mut data: Vec<String> = Vec::new();
+    for rule in raw {
+        if !is_unsupported_regex_syntax(rule.as_str()) {
+            data.push(rule.to_string());
+        }
+    }
+
+    Ok(data)
+}
