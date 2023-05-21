@@ -19,7 +19,7 @@ pub static GITHUB_LINGUIST_HEURISTICS_URL: &str =
 pub static GITHUB_LINGUIST_VENDORS_URL: &str =
     "https://raw.githubusercontent.com/github-linguist/linguist/master/lib/linguist/vendor.yml";
 pub static GITHUB_LINGUIST_DOCUMENTATION_URL: &str =
-    "https://raw.githubusercontent.com/github-linguist/linguist/master/lib/linguist/vendor.yml";
+    "https://raw.githubusercontent.com/github-linguist/linguist/master/lib/linguist/documentation.yml";
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Config {
