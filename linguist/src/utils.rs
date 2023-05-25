@@ -3,9 +3,8 @@ use std::{
     path::Path,
 };
 
+use crate::error::LinguistError;
 use regex::{Regex, RegexSet};
-
-use crate::resolver::LinguistError;
 
 pub static CONFIGURATION_EXTENSIONS: [&str; 6] = ["xml", "json", "toml", "yaml", "ini", "sql"];
 

@@ -9,6 +9,7 @@ use std::usize;
 #[cfg(feature = "matcher")]
 use regex::Regex;
 
+use crate::error::LinguistError;
 use crate::utils::{determine_multiline_exec, has_shebang, is_binary};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -82,27 +83,6 @@ pub struct HeuristicRule {
     pub language: String,
     pub extensions: Vec<OsString>,
     pub patterns: Vec<String>,
-}
-
-#[derive(Debug)]
-pub enum LinguistError {
-    LanguageNotFound,
-    #[cfg(feature = "serde")]
-    FileNotFound,
-    PatternCompileError(regex::Error),
-    IOError(std::io::Error),
-}
-
-impl From<std::io::Error> for LinguistError {
-    fn from(value: std::io::Error) -> Self {
-        LinguistError::IOError(value)
-    }
-}
-
-impl From<regex::Error> for LinguistError {
-    fn from(value: regex::Error) -> Self {
-        LinguistError::PatternCompileError(value)
-    }
 }
 
 pub trait Container {

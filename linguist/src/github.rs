@@ -1,4 +1,5 @@
-use crate::resolver::{HeuristicRule, Language, LinguistError};
+use crate::resolver::{HeuristicRule, Language};
+use crate::error::LinguistError;
 use crate::utils::is_unsupported_regex_syntax;
 use std::collections::HashMap;
 use std::ffi::OsString;
@@ -123,7 +124,7 @@ struct YamlContent {
 pub fn load_github_linguist_heuristics(
     path: impl AsRef<Path>,
 ) -> Result<Vec<HeuristicRule>, LinguistError> {
-    let content = std::fs::read_to_string(path).expect("unable to open heuristics file");
+    let content = std::fs::read_to_string(path)?;
     let data = serde_yaml::from_str::<YamlContent>(&content);
 
     let mut rules: Vec<HeuristicRule> = Vec::new();
@@ -186,7 +187,7 @@ pub fn load_github_linguist_heuristics(
 }
 
 pub fn load_github_vendors(path: impl AsRef<Path>) -> Result<Vec<String>, LinguistError> {
-    let content = std::fs::read_to_string(path).expect("unable to open vendors file");
+    let content = std::fs::read_to_string(path)?;
     let raw = serde_yaml::from_str::<Vec<String>>(&content).unwrap();
 
     let mut data: Vec<String> = Vec::new();
@@ -200,7 +201,7 @@ pub fn load_github_vendors(path: impl AsRef<Path>) -> Result<Vec<String>, Lingui
 }
 
 pub fn load_github_documentation(path: impl AsRef<Path>) -> Result<Vec<String>, LinguistError> {
-    let content = std::fs::read_to_string(path).expect("unable to open vendors file");
+    let content = std::fs::read_to_string(path)?;
     let raw = serde_yaml::from_str::<Vec<String>>(&content).unwrap();
 
     let mut data: Vec<String> = Vec::new();
