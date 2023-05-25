@@ -1,5 +1,6 @@
 use linguist::{
-    resolver::{resolve_language, InMemoryLanguageContainer, Scope},
+    container::InMemoryLanguageContainer,
+    resolver::{resolve_language, Scope},
     utils::{is_configuration, is_documentation, is_dotfile, is_vendor},
 };
 use regex::RegexSet;
