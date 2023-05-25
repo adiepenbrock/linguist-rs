@@ -68,7 +68,12 @@ pub fn is_binary(path: impl AsRef<Path>) -> Result<bool, LinguistError> {
     Ok(false)
 }
 
-pub fn is_generated(_file: impl AsRef<Path>) -> bool {
+pub static GENERATED_NAMES_EXTENSIONS: [&str; 3] = ["nib", "xcworkspacedata", "xcuserstate"];
+
+pub fn is_generated(file: impl AsRef<Path>) -> bool {
+    if let Some(ext) = file.as_ref().to_path_buf().extension() {
+        return GENERATED_NAMES_EXTENSIONS.contains(&ext.to_str().unwrap());
+    }
     false
 }
 
