@@ -42,7 +42,7 @@ impl TryInto<Language> for GhLanguageDef {
                 .extensions
                 .unwrap_or_default()
                 .iter()
-                .map(|ext| OsString::from(ext.replacen(".", "", 1)))
+                .map(|ext| OsString::from(ext.replacen('.', "", 1)))
                 .collect(),
             interpreters: self.interpreters.unwrap_or_default(),
         })
