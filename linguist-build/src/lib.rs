@@ -73,7 +73,7 @@ impl Config {
     fn download_from_url(&self, out_dir: &Path, url: &str) -> Result<PathBuf, ()> {
         match reqwest::blocking::get(url) {
             Ok(result) => {
-                let path = out_dir.join("file");
+                let path = out_dir.join("file.yml");
                 let mut file = std::fs::File::create(path.clone()).expect("cannot create tempfile");
                 std::io::copy(
                     &mut result
