@@ -1,5 +1,6 @@
-use crate::resolver::{HeuristicRule, Language};
 use crate::error::LinguistError;
+use crate::resolver::{HeuristicRule, Language, Scope};
+use crate::serde::deserialize_languages;
 use crate::utils::is_unsupported_regex_syntax;
 use std::collections::HashMap;
 use std::ffi::OsString;
@@ -8,15 +9,44 @@ use std::fmt::Display;
 use std::path::Path;
 
 #[derive(Debug, serde::Deserialize)]
-struct GhLanguageDef {
-    color: Option<String>,
+pub struct GhLanguageDef {
+    pub color: Option<String>,
+    #[serde(skip)]
+    pub name: String,
     #[serde(rename = "type")]
-    scope: String,
-    aliases: Option<Vec<String>>,
-    extensions: Option<Vec<String>>,
-    filenames: Option<Vec<String>>,
-    interpreters: Option<Vec<String>>,
-    group: Option<String>,
+    pub scope: String,
+    pub aliases: Option<Vec<String>>,
+    pub extensions: Option<Vec<String>>,
+    pub filenames: Option<Vec<String>>,
+    pub interpreters: Option<Vec<String>>,
+    pub group: Option<String>,
+}
+
+impl TryInto<Language> for GhLanguageDef {
+    type Error = LinguistError;
+
+    fn try_into(self) -> Result<Language, Self::Error> {
+        Ok(Language {
+            aliases: self.aliases.unwrap_or_default(),
+            color: self.color.clone(),
+            name: self.name.clone(),
+            scope: Scope::from(self.scope),
+            parent: self.group.clone(),
+            filenames: self
+                .filenames
+                .unwrap_or_default()
+                .iter()
+                .map(OsString::from)
+                .collect(),
+            extensions: self
+                .extensions
+                .unwrap_or_default()
+                .iter()
+                .map(|ext| OsString::from(ext.replacen(".", "", 1)))
+                .collect(),
+            interpreters: self.interpreters.unwrap_or_default(),
+        })
+    }
 }
 
 pub fn load_github_linguist_languages(
@@ -26,39 +56,7 @@ pub fn load_github_linguist_languages(
         return Err(LinguistError::FileNotFound);
     }
 
-    let ldc = std::fs::read_to_string(path).expect("failed to read path");
-    let defs: Result<HashMap<String, GhLanguageDef>, _> = serde_yaml::from_str(ldc.as_str());
-
-    let mut languages: Vec<Language> = Vec::new();
-    if let Ok(defs) = defs {
-        for (name, lang) in defs.iter() {
-            languages.push(Language {
-                name: name.clone(),
-                scope: lang.scope.clone().into(),
-                extensions: lang
-                    .extensions
-                    .clone()
-                    .unwrap_or_default()
-                    .iter()
-                    // because `Path.extension()` requires that an extension does not begin with `.`,
-                    // we remove the first `.` from the extension
-                    .map(|ext| OsString::from(ext.replacen('.', "", 1)))
-                    .collect(),
-                filenames: lang
-                    .filenames
-                    .clone()
-                    .unwrap_or_default()
-                    .iter()
-                    .map(OsString::from)
-                    .collect(),
-                interpreters: lang.interpreters.clone().unwrap_or(vec![]),
-                aliases: lang.aliases.clone().unwrap_or(vec![]),
-                color: lang.color.clone(),
-                parent: lang.group.clone(),
-            });
-        }
-    }
-
+    let languages = deserialize_languages::<GhLanguageDef>(path)?;
     Ok(languages)
 }
 
