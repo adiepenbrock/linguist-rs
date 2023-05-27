@@ -21,9 +21,13 @@ pub static GITHUB_LINGUIST_VENDORS_URL: &str =
 pub static GITHUB_LINGUIST_DOCUMENTATION_URL: &str =
     "https://raw.githubusercontent.com/github-linguist/linguist/master/lib/linguist/documentation.yml";
 
+/// The `Config` is used to configure the build process. It can be used to specify the `output path` and 
+/// the `definitions` to be generated.
 #[derive(Clone, PartialEq, Eq)]
 pub struct Config {
+    /// The `out_path` is used to specify the path where the generated files will be written to.
     out_path: PathBuf,
+    /// The `definitions` are used to specify which definitions should be generated.
     definitions: Vec<Definition>,
 }
 
@@ -36,6 +40,9 @@ impl Default for Config {
     }
 }
 
+/// A `Definition` is used to specify the `name`, [`Location`], and the [`Kind`] of an artifact 
+/// to generate. The `Location` can either be a `URL` or a `Path`. The `Kind` specifies the type of
+/// artifact to generate, e.g., Languages, Heuristics, Vendors, or Documentation.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Definition {
     pub name: String,
@@ -46,10 +53,16 @@ pub struct Definition {
 /// Location is used to specify the path to the respective [`Definition`].
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Location {
+    /// The `Path` variant is used to specify the path to the respective [`Definition`]. It must be
+    /// available locally on the filesystem.
     Path(PathBuf),
+    /// The `URL` variant is used to specify the URL to the respective [`Definition`]. It will be
+    /// downloaded from the given URL.
     URL(String),
 }
 
+/// Kind is used to specify the type of artifact to generate, e.g., Languages, Heuristics, Vendors,
+/// or Documentation.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Kind {
     Languages,
@@ -64,12 +77,14 @@ impl Config {
         Self::default()
     }
 
-    /// Adds a [definition](Definition) to the `Config`.
+    /// Add a [`Definition`] to the `Config`.
     pub fn add_definition(&mut self, definition: Definition) -> &mut Self {
         self.definitions.push(definition);
         self
     }
 
+    /// Used internally to download a definition from the given `url` and write it to the given
+    /// `out_dir`.
     fn download_from_url(&self, out_dir: &Path, url: &str) -> Result<PathBuf, ()> {
         match reqwest::blocking::get(url) {
             Ok(result) => {
@@ -89,6 +104,7 @@ impl Config {
         }
     }
 
+    /// Generate a [`Language`] definition and writes it to the `out_path`.
     fn generate_language(&self, name: &str, location: Location) {
         let tmpdir = tempdir().expect("failed to create a tempdir");
         let def_file = match location {
@@ -112,6 +128,7 @@ impl Config {
         _ = target_file.flush();
     }
 
+    /// Generate a [`HeuristicRule`] definition and writes it to the `out_path`.
     fn generate_heuristics(&self, name: &str, location: Location) {
         let tmpdir = tempdir().expect("failed to create a tempdir");
         let def_file = match location {
@@ -135,6 +152,7 @@ impl Config {
         _ = target_file.flush();
     }
 
+    /// Generate a `Vendor` definition and writes it to the `out_path`.
     fn generate_vendors(&self, name: &str, location: Location) {
         let tmpdir = tempdir().expect("failed to create a tempdir");
         let def_file = match location {
@@ -156,6 +174,7 @@ impl Config {
         _ = target_file.flush();
     }
 
+    /// Generate a `Documentation` definition and writes it to the `out_path`.
     fn generate_documentation(&self, name: &str, location: Location) {
         let tmpdir = tempdir().expect("failed to create a tempdir");
         let def_file = match location {
@@ -178,6 +197,7 @@ impl Config {
         _ = target_file.flush();
     }
 
+    /// Generates all configured definitions and writes them to the `out_path`. 
     pub fn generate(&self) {
         for def in self.definitions.iter() {
             match def.kind {
@@ -198,6 +218,7 @@ impl std::fmt::Debug for Config {
     }
 }
 
+/// Convert a [`Language`] into a string representation (as rust code).
 fn write_language_definition(lang: &Language) -> String {
     let mut str = String::new();
     str.push_str("Language {");
@@ -296,6 +317,7 @@ fn write_language_definition(lang: &Language) -> String {
     str
 }
 
+/// Convert a [`HeuristicRule`] into a string representation (as rust code).
 fn write_heuristic_definition(rule: &HeuristicRule) -> String {
     let mut str = String::new();
     str.push_str("HeuristicRule {");

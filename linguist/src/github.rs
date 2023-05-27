@@ -1,6 +1,6 @@
 use crate::error::LinguistError;
 use crate::resolver::{HeuristicRule, Language, Scope};
-use crate::serde::deserialize_languages;
+use crate::serde::{deserialize_languages, deserialize_strings};
 use crate::utils::is_unsupported_regex_syntax;
 use std::collections::HashMap;
 use std::ffi::OsString;
@@ -8,6 +8,7 @@ use std::ffi::OsString;
 use std::fmt::Display;
 use std::path::Path;
 
+/// Internal representation of a language definition from GitHub's Linguist.
 #[derive(Debug, serde::Deserialize)]
 pub struct GhLanguageDef {
     pub color: Option<String>,
@@ -49,6 +50,7 @@ impl TryInto<Language> for GhLanguageDef {
     }
 }
 
+/// Loads all GitHub Linguist languages from the given file and returns list of [`Language`].
 pub fn load_github_linguist_languages(
     path: impl AsRef<Path>,
 ) -> Result<Vec<Language>, LinguistError> {
@@ -118,6 +120,7 @@ struct YamlContent {
     named_patterns: HashMap<String, RuleLanguage>,
 }
 
+/// Loads all GitHub Linguist heuristics from the given file and returns list of [`HeuristicRule`].
 #[cfg(feature = "matcher")]
 pub fn load_github_linguist_heuristics(
     path: impl AsRef<Path>,
@@ -184,12 +187,12 @@ pub fn load_github_linguist_heuristics(
     Ok(rules)
 }
 
+/// Loads all GitHub Linguist vendors from the given file and returns list of strings.
 pub fn load_github_vendors(path: impl AsRef<Path>) -> Result<Vec<String>, LinguistError> {
-    let content = std::fs::read_to_string(path)?;
-    let raw = serde_yaml::from_str::<Vec<String>>(&content).unwrap();
+    let content = deserialize_strings(path)?;
 
     let mut data: Vec<String> = Vec::new();
-    for rule in raw {
+    for rule in content {
         if !is_unsupported_regex_syntax(rule.as_str()) {
             data.push(rule.to_string());
         }
@@ -198,12 +201,12 @@ pub fn load_github_vendors(path: impl AsRef<Path>) -> Result<Vec<String>, Lingui
     Ok(data)
 }
 
+/// Loads all GitHub Linguist documentation from the given file and returns list of strings.
 pub fn load_github_documentation(path: impl AsRef<Path>) -> Result<Vec<String>, LinguistError> {
-    let content = std::fs::read_to_string(path)?;
-    let raw = serde_yaml::from_str::<Vec<String>>(&content).unwrap();
+    let content = deserialize_strings(path)?;
 
     let mut data: Vec<String> = Vec::new();
-    for rule in raw {
+    for rule in content {
         if !is_unsupported_regex_syntax(rule.as_str()) {
             data.push(rule.to_string());
         }

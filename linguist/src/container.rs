@@ -2,11 +2,20 @@ use std::{collections::HashMap, ffi::OsString, path::Path};
 
 use crate::resolver::{HeuristicRule, Language};
 
+/// A `Container` can be used to implement a storage that holds [`Language`] and [`HeuristicRule`] definitions.
+/// 
+/// ## Features
+/// When the `matcher` feature is enabled, the `Container` trait will also expose methods to retrieve [`HeuristicRule`] definitions.
 pub trait Container {
+    /// Returns a list of all [`Language`] definitions identified by its name.
     fn get_language_by_name(&self, name: &str) -> Option<&Language>;
+    /// Returns a list of all [`Language`] definitions identified by the extension of the given file.
     fn get_languages_by_extension(&self, file: impl AsRef<Path>) -> Option<Vec<&Language>>;
+    /// Returns a list of all [`Language`] definitions identified by the name of the given file.
     fn get_languages_by_filename(&self, file: impl AsRef<Path>) -> Option<Vec<&Language>>;
+    /// Returns a list of all [`Language`] definitions identified by its interpreter.
     fn get_languages_by_interpreter(&self, interpreter: &str) -> Option<Vec<&Language>>;
+    /// Returns a list of all [`HeuristicRule`] definitions identified by the extension of the given file.
     #[cfg(feature = "matcher")]
     fn get_heuristics_by_extension(&self, file: impl AsRef<Path>) -> Option<&Vec<HeuristicRule>>;
 }

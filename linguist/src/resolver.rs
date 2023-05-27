@@ -4,8 +4,6 @@ use std::fmt::Display;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
-use std::usize;
-
 #[cfg(feature = "matcher")]
 use regex::Regex;
 
@@ -13,6 +11,7 @@ use crate::container::Container;
 use crate::error::LinguistError;
 use crate::utils::{determine_multiline_exec, has_shebang, is_binary};
 
+/// A `Language` exposes the properties of a language definition.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Language {
@@ -32,6 +31,7 @@ impl Display for Language {
     }
 }
 
+/// A `Scope` represents the type of a [`Language`]. 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Scope {
@@ -78,14 +78,19 @@ impl std::fmt::Display for Scope {
     }
 }
 
+/// A `HeuristicRule` represents a check for a [`Language`] based on the content of a file.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "matcher", derive(serde::Serialize, serde::Deserialize))]
 pub struct HeuristicRule {
+    /// The reference to the [`Language`] that is matched by this rule.
     pub language: String,
+    /// A list of extensions that are used to check whether this rule applies.
     pub extensions: Vec<OsString>,
+    /// A list of patterns that are used to check whether this rule applies.
     pub patterns: Vec<String>,
 }
 
+/// Used to resolve all possible [`Language`]s by the given filename. 
 pub fn resolve_languages_by_filename(
     file: impl AsRef<Path>,
     container: &impl Container,
@@ -96,6 +101,7 @@ pub fn resolve_languages_by_filename(
     }
 }
 
+/// Used to resolve all possible [`Language`]s by the given extension.
 pub fn resolve_languages_by_extension(
     file: impl AsRef<Path>,
     container: &impl Container,
@@ -106,6 +112,7 @@ pub fn resolve_languages_by_extension(
     }
 }
 
+/// Used to resolve all possible [`Language`]s by the file contents.
 #[cfg(feature = "matcher")]
 pub fn resolve_language_by_content(
     file: impl AsRef<Path>,
@@ -129,6 +136,7 @@ pub fn resolve_language_by_content(
     Err(LinguistError::LanguageNotFound)
 }
 
+/// Used to resolve all possible [`Language`]s by the file contents.
 pub fn resolve_languages_by_shebang(
     file: impl AsRef<Path>,
     container: &impl Container,
@@ -207,6 +215,8 @@ pub fn resolve_languages_by_shebang(
     }
 }
 
+/// Resolve the [`Language`] of the given file. It will try to resolve the language by the filename,
+/// extension, shebang and content. The most likely language will be returned.
 pub fn resolve_language(
     file: impl AsRef<Path>,
     container: &impl Container,
