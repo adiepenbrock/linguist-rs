@@ -1,7 +1,7 @@
 [package]
 name = "linguist-rs-build"
 description = "A build script for linguist-rs"
-version = "0.7.1"
+version = "1.0.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/adiepenbrock/linguist-rs"
@@ -12,7 +12,7 @@ name = "linguist_build"
 path = "src/lib.rs"
 
 [dependencies]
-linguist-rs = { version = "0.7.1", path = "../linguist", features = ["github-linguist-yaml"] }
+linguist-rs = { version = "1.0.0", path = "../linguist", features = ["github-linguist-yaml"] }
 serde = { version = "1.0", features = ["derive"], optional = true}
 serde_yaml = { version = "0.9", optional = true }
 tempfile = { version = "3.5.0" }
