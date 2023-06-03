@@ -18,7 +18,7 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
 
     let mut lc = InMemoryLanguageContainer::default();
-    for lang in predefined::languages() {
+    for &lang in predefined::LANGUAGES.iter() {
         lc.register_language(lang);
     }
 

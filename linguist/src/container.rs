@@ -3,7 +3,7 @@ use std::{collections::HashMap, ffi::OsString, path::Path};
 use crate::resolver::{HeuristicRule, Language};
 
 /// A `Container` can be used to implement a storage that holds [`Language`] and [`HeuristicRule`] definitions.
-/// 
+///
 /// ## Features
 /// When the `matcher` feature is enabled, the `Container` trait will also expose methods to retrieve [`HeuristicRule`] definitions.
 pub trait Container {
@@ -27,8 +27,8 @@ pub struct InMemoryLanguageContainer {
 }
 
 impl InMemoryLanguageContainer {
-    pub fn register_language(&mut self, lang: Language) {
-        self.languages.push(lang);
+    pub fn register_language(&mut self, lang: impl Into<Language>) {
+        self.languages.push(lang.into());
     }
 
     #[cfg(feature = "matcher")]

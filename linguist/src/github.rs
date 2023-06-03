@@ -10,7 +10,7 @@ use std::path::Path;
 
 /// Internal representation of a language definition from GitHub's Linguist.
 #[derive(Debug, serde::Deserialize)]
-pub struct GhLanguageDef {
+pub struct GitHubLanguage {
     pub color: Option<String>,
     #[serde(skip)]
     pub name: String,
@@ -23,7 +23,7 @@ pub struct GhLanguageDef {
     pub group: Option<String>,
 }
 
-impl TryInto<Language> for GhLanguageDef {
+impl TryInto<Language> for GitHubLanguage {
     type Error = LinguistError;
 
     fn try_into(self) -> Result<Language, Self::Error> {
@@ -58,7 +58,7 @@ pub fn load_github_linguist_languages(
         return Err(LinguistError::FileNotFound);
     }
 
-    let languages = deserialize_languages::<GhLanguageDef>(path)?;
+    let languages = deserialize_languages::<GitHubLanguage>(path)?;
     Ok(languages)
 }
 
