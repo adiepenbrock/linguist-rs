@@ -22,10 +22,8 @@ fn main() {
         lc.register_language(lang);
     }
 
-    for h in predefined::heuristics() {
-        for ext in &h.extensions {
-            lc.register_heuristic_rule(ext.clone(), h.clone());
-        }
+    for &rule in predefined::HEURISTICS.iter() {
+        lc.register_heuristic_rule(rule);
     }
 
     let root = Path::new(&args[1]);

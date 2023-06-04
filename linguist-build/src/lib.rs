@@ -144,11 +144,11 @@ impl Config {
 
         let target_path = self.out_path.clone();
         let mut target_file = std::fs::File::create(target_path.join(name)).unwrap();
-        _ = target_file.write_all("use std::ffi::OsString;\nuse linguist::resolver::HeuristicRule;\n\npub fn heuristics() -> Vec<HeuristicRule> {\n let langs: Vec<HeuristicRule> = vec![".to_string().as_bytes());
+        _ = target_file.write_all("use linguist::serde::StaticHeuristicRule;\n\npub static HEURISTICS: &[&StaticHeuristicRule] = &[\n".to_string().as_bytes());
         for str in entries {
             _ = target_file.write_all(format!("    {},\n", str).as_bytes());
         }
-        _ = target_file.write_all("];\nlangs\n}\n".to_string().as_bytes());
+        _ = target_file.write_all("];\n".to_string().as_bytes());
         _ = target_file.flush();
     }
 
@@ -314,48 +314,42 @@ fn write_language_definition(lang: &Language) -> String {
 /// Convert a [`HeuristicRule`] into a string representation (as rust code).
 fn write_heuristic_definition(rule: &HeuristicRule) -> String {
     let mut str = String::new();
-    str.push_str("HeuristicRule {");
+    str.push_str("&StaticHeuristicRule {");
 
-    str.push_str(format!("language: \"{}\".to_string(), ", &rule.language).as_str());
+    str.push_str(format!("language: \"{}\", ", &rule.language).as_str());
 
     if !rule.extensions.is_empty() {
         str.push_str(
             format!(
-                "extensions: vec![{}], ",
+                "extensions: &[{}], ",
                 &rule
                     .extensions
                     .iter()
-                    .map(|s| format!(
-                        "OsString::from(\"{}\")",
-                        s.to_str().expect("cannot unwrap extension")
-                    ))
+                    .map(|s| format!("\"{}\"", s.to_str().expect("cannot unwrap extension")))
                     .collect::<Vec<String>>()
                     .join(", ")
             )
             .as_str(),
         );
     } else {
-        str.push_str("extensions: vec![], ");
+        str.push_str("extensions: &[], ");
     }
 
     if !rule.patterns.is_empty() {
         str.push_str(
             format!(
-                "patterns: vec![{}], ",
+                "patterns: &[{}], ",
                 &rule
                     .patterns
                     .iter()
-                    .map(|s| format!(
-                        "\"{}\".to_string()",
-                        s.replace('\\', "\\\\").replace('\"', "\\\"")
-                    ))
+                    .map(|s| format!("\"{}\"", s.replace('\\', "\\\\").replace('\"', "\\\"")))
                     .collect::<Vec<String>>()
                     .join(", ")
             )
             .as_str(),
         );
     } else {
-        str.push_str("patterns: vec![] ");
+        str.push_str("patterns: &[] ");
     }
 
     str.push('}');

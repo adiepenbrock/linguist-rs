@@ -4,7 +4,7 @@ use serde::Deserialize;
 
 use crate::{
     error::LinguistError,
-    resolver::{Language, Scope},
+    resolver::{HeuristicRule, Language, Scope},
 };
 
 #[derive(Debug, Clone)]
@@ -57,6 +57,26 @@ impl<'src> From<&'src StaticLanguage<'src>> for Language {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct StaticHeuristicRule<'a> {
+    pub language: &'a str,
+    pub extensions: &'a [&'a str],
+    pub patterns: &'a [&'a str],
+}
+
+impl<'a> From<&'a StaticHeuristicRule<'a>> for HeuristicRule {
+    fn from(value: &'a StaticHeuristicRule<'a>) -> Self {
+        Self {
+            language: String::from(value.language),
+            extensions: value
+                .extensions
+                .iter()
+                .map(|ext| OsString::from(*ext))
+                .collect(),
+            patterns: value.patterns.iter().map(|&s| String::from(s)).collect(),
+        }
+    }
+}
 /// Deserialize a YAML file into a vector of languages. This supports the deserialization of
 /// custom language definition types by taking a generic type parameter. The generic type must
 /// implement the `TryInto<Language>` and the `serde::Deserialize` trait. Furthermore, the path

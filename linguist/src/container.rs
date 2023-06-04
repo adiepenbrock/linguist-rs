@@ -32,14 +32,19 @@ impl InMemoryLanguageContainer {
     }
 
     #[cfg(feature = "matcher")]
-    pub fn register_heuristic_rule(&mut self, ext: OsString, rule: HeuristicRule) {
-        if let Some(heuristic) = self.heuristics.get_mut(&ext) {
-            if !heuristic.contains(&rule) {
-                heuristic.push(rule);
+    pub fn register_heuristic_rule(&mut self, rule: impl Into<HeuristicRule>) {
+        let rule = rule.into();
+
+        for ext in &rule.extensions {
+            if let Some(heuristic) = self.heuristics.get_mut(ext) {
+                if !heuristic.contains(&rule) {
+                    heuristic.push(rule.clone());
+                } else {
+                }
             } else {
+                self.heuristics
+                    .insert(ext.to_os_string(), vec![rule.clone()]);
             }
-        } else {
-            self.heuristics.insert(ext.to_os_string(), vec![rule]);
         }
     }
 }
