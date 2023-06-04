@@ -25,27 +25,6 @@ pub fn is_configuration(file: impl AsRef<Path>) -> bool {
     false
 }
 
-pub static DOCS: [&str; 18] = [
-    "[Dd]ocs?/",
-    "(^|/)[Dd]ocumentation/",
-    "(^|/)[Gg]roovydoc/",
-    "(^|/)[Jj]avadoc/",
-    "^[Mm]an/",
-    "^[Ee]xamples/",
-    "^[Dd]emos?/",
-    "(^|/)inst/doc/",
-    "(^|/)CITATION(\\.cff|(S)?(\\.(bib|md))?)$",
-    "(^|/)CHANGE(S|LOG)?(\\.|$)",
-    "(^|/)CONTRIBUTING(\\.|$)",
-    "(^|/)COPYING(\\.|$)",
-    "(^|/)INSTALL(\\.|$)",
-    "(^|/)LICEN[CS]E(\\.|$)",
-    "(^|/)[Ll]icen[cs]e(\\.|$)",
-    "(^|/)README(\\.|$)",
-    "(^|/)[Rr]eadme(\\.|$)",
-    "^[Ss]amples?/",
-];
-
 /// Checks if a file is documentation by checking if it matches any of the documentation rules.
 ///
 /// # Example
