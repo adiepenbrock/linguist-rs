@@ -14,6 +14,7 @@ path = "src/lib.rs"
 [dependencies]
 regex = { version = "1.8.1", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true}
+log = "0.4.20"
 serde_yaml = { version = "0.9.21", optional = true }
 
 [features]

@@ -1,3 +1,4 @@
+use log::debug;
 use std::collections::HashMap;
 use std::ffi::OsString;
 use std::fmt::Display;
@@ -31,7 +32,7 @@ impl Display for Language {
     }
 }
 
-/// A `Scope` represents the type of a [`Language`]. 
+/// A `Scope` represents the type of a [`Language`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Scope {
@@ -90,7 +91,7 @@ pub struct HeuristicRule {
     pub patterns: Vec<String>,
 }
 
-/// Used to resolve all possible [`Language`]s by the given filename. 
+/// Used to resolve all possible [`Language`]s by the given filename.
 pub fn resolve_languages_by_filename(
     file: impl AsRef<Path>,
     container: &impl Container,
@@ -260,6 +261,7 @@ pub fn resolve_language(
     let mut ordered: Vec<(&String, &usize)> = probabilities.iter().collect();
     ordered.sort_by_key(|&(_, v)| v);
     ordered.reverse();
+    debug!("LANGUAGE RESOLVED with possiblities: {:?}", ordered);
 
     if !ordered.is_empty() {
         return Ok(Some(
